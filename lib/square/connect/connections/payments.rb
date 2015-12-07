@@ -2,15 +2,27 @@ module Square
   module Connect
     module Connections
       module Payments
-        def payments(params = nil)
+        # Example usage:
+        #   connection.payments(limit: 200) do |payment|
+        #     ... 
+        #   end
+        #
+        def payments(params = { }, &block)
           access_token_required!
+
+          response = nil
           payments = handle_response do
             access_token.get endpoint_for(identifier, :payments), params
           end
-          payments.collect do |payment|
-            Payment.new payment.merge(
-              access_token: access_token
-            )
+
+          payments.each do |payment|
+            yield Payment.new(payment.merge(access_token: access_token))
+          end
+
+          if response.headers[:link].to_s.include?("rel='next'")
+            payments(params.merge! batch_token: response.headers[:link].
+                                            split('?batch_token=').last.
+                                            split('>').first, &block)
           end
         end
 
@@ -26,3 +38,10 @@ module Square
     end
   end
 end
+
+
+
+
+
+
+
